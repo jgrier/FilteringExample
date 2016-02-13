@@ -4,27 +4,44 @@ import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
 import org.apache.flink.api.common.functions.RichFilterFunction;
+import org.apache.flink.api.java.functions.KeySelector;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.streaming.api.checkpoint.CheckpointedAsynchronously;
 
+import java.io.Serializable;
 import java.util.HashSet;
 import java.util.concurrent.TimeUnit;
 
-public class DedupeFilterFunction extends RichFilterFunction<Tweet> implements CheckpointedAsynchronously<HashSet<Long>> {
 
-  private LoadingCache<Long, Boolean> tweetCache;
+/**
+ * This class filters duplicates that occur within a configurable time of each other in a data stream.
+ */
+public class DedupeFilterFunction<T, K extends Serializable> extends RichFilterFunction<T> implements CheckpointedAsynchronously<HashSet<K>> {
+
+  private LoadingCache<K, Boolean> dedupeCache;
+  private final KeySelector<T, K> keySelector;
+  private final long cacheExpirationTimeMs;
+
+  /**
+   * @param cacheExpirationTimeMs The expiration time for elements in the cache
+   */
+  public DedupeFilterFunction(KeySelector<T, K> keySelector, long cacheExpirationTimeMs){
+    this.keySelector = keySelector;
+    this.cacheExpirationTimeMs = cacheExpirationTimeMs;
+  }
 
   @Override
   public void open(Configuration parameters) throws Exception {
-    createTweetCache();
+    createDedupeCache();
   }
 
 
   @Override
-  public boolean filter(Tweet value) throws Exception {
-    boolean seen = tweetCache.get(value.getTweetId());
+  public boolean filter(T value) throws Exception {
+    K key = keySelector.getKey(value);
+    boolean seen = dedupeCache.get(key);
     if (!seen) {
-      tweetCache.put(value.getTweetId(), true);
+      dedupeCache.put(key, true);
       return true;
     } else {
       return false;
@@ -32,24 +49,24 @@ public class DedupeFilterFunction extends RichFilterFunction<Tweet> implements C
   }
 
   @Override
-  public HashSet<Long> snapshotState(long checkpointId, long checkpointTimestamp) throws Exception {
-    return new HashSet<>(tweetCache.asMap().keySet());
+  public HashSet<K> snapshotState(long checkpointId, long checkpointTimestamp) throws Exception {
+    return new HashSet<>(dedupeCache.asMap().keySet());
   }
 
   @Override
-  public void restoreState(HashSet<Long> state) throws Exception {
-    createTweetCache();
-    for (Long l : state) {
-      tweetCache.put(l, true);
+  public void restoreState(HashSet<K> state) throws Exception {
+    createDedupeCache();
+    for (K key : state) {
+      dedupeCache.put(key, true);
     }
   }
 
-  private void createTweetCache() {
-    tweetCache = CacheBuilder.newBuilder()
-      .expireAfterWrite(10, TimeUnit.SECONDS)
-      .build(new CacheLoader<Long, Boolean>() {
+  private void createDedupeCache() {
+    dedupeCache = CacheBuilder.newBuilder()
+      .expireAfterWrite(cacheExpirationTimeMs, TimeUnit.MILLISECONDS)
+      .build(new CacheLoader<K, Boolean>() {
         @Override
-        public Boolean load(Long key) throws Exception {
+        public Boolean load(K k) throws Exception {
           return false;
         }
       });

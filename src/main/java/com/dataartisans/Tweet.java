@@ -1,5 +1,7 @@
 package com.dataartisans;
 
+import org.apache.flink.api.java.functions.KeySelector;
+
 public class Tweet {
   private long tweetId;
 
@@ -17,6 +19,15 @@ public class Tweet {
 
   public long getTweetId(){
     return tweetId;
+  }
+
+  public static KeySelector<Tweet, Long> getKeySelector() {
+    return new KeySelector<Tweet, Long>() {
+      @Override
+      public Long getKey(Tweet tweet) throws Exception {
+        return tweet.tweetId;
+      }
+    };
   }
 
   @Override
