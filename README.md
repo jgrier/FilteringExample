@@ -28,7 +28,7 @@ Indicates that customer "Google" wants to receive impressions data for the tweet
 To run this example pass the host name and port of the socket server where the subscription
 messages can be read from.  For example:
 
-> flink run -c com.dataartisans.TweetImpressionFilteringJob <jar_file> --host localhost --port 9999
+> flink run -c com.dataartisans.TweetImpressionFilteringJob FilteringExample-1.0-SNAPSHOT.jar --host localhost --port 9999
 
 A great way to test this is to use netcat to provide the socket server.  For example:
 
@@ -40,4 +40,3 @@ Also note the set of possible customers is fixed.  Customer must be one of:
 
 Google, Twitter, Facebook, Apple, Amazon
 
-Of course the sources and sinks for these messages could be anything.  Kafka would be a good source and sink but it's written this way just to minimize dependencies for example purposes.  To source and sink from/to Kafka is a trivial change.
