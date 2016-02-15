@@ -1,4 +1,4 @@
-package com.dataartisans;
+package com.dataartisans.filters;
 
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;

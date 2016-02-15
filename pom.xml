@@ -218,7 +218,7 @@ under the License.
 							<transformers>
 								<!-- add Main-Class to manifest file -->
 								<transformer implementation="org.apache.maven.plugins.shade.resource.ManifestResourceTransformer">
-									<mainClass>com.dataartisans.FilteringJob</mainClass>
+									<mainClass>com.dataartisans.DedupeFilteringJob</mainClass>
 								</transformer>
 							</transformers>
 							<createDependencyReducedPom>false</createDependencyReducedPom>
@@ -235,7 +235,7 @@ under the License.
 				<configuration>
 					<archive>
 						<manifestEntries>
-							<Main-Class>com.dataartisans.FilteringJob</Main-Class>
+							<Main-Class>com.dataartisans.DedupeFilteringJob</Main-Class>
 						</manifestEntries>
 					</archive>
 				</configuration>
