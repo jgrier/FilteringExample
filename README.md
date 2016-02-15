@@ -38,3 +38,5 @@ Then type messages to the console to enable TweetSubscriptions in the format des
 Also note the set of possible customers is fixed.  Customer must be one of:
 
 Google, Twitter, Facebook, Apple, Amazon
+
+Of course the sources and sinks for these messages could be anything.  Kafka would be a good source and sink but it's written this way just to minimize dependencies for example purposes.  To source and sink from/to Kafka is a trivial change.
