@@ -1,4 +1,5 @@
-# DedupeFilteringJob
+# Filtering Examples
+## DedupeFilteringJob
 
 This shows an example of how to remove duplicates in a stream.  It essentially uses an LRU cache and filters out duplicate messages that are seen within a set amount of time.  Have a look at the DedupeFilterFunction.
 
@@ -8,7 +9,7 @@ The tweets are generated randomly for tweets with IDs in the range [1..10]
 
 This filtering is done in a fully fault-tolerant way since the state of the DedupeFilterFunction is checkpointed and will be restored in the event of failure.
 
-# TweetImpressionFilteringJob
+## TweetImpressionFilteringJob
 This job consumes a stream of TweetImpressions and a stream of TweetSubscriptions from customers. There is a separate output sink for each customer and each customer receives only those TweetImpressions for tweets that they have subscribed to.  Note that both the TweetImpression stream and the TweetSubscription stream are both keyed by TweetID.  This naturally partitions the streams correctly across any number of hosts.
 
 The TweetImpressions stream contains many duplicates so the the stream is first deduplicated using the DedupeFilterFunction.
