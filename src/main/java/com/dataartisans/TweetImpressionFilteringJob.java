@@ -10,6 +10,7 @@ import com.dataartisans.sources.TweetsWithDuplicatesSourceFunction;
 import com.dataartisans.domain.TweetSubscription;
 import com.google.common.collect.Lists;
 import org.apache.flink.api.common.functions.MapFunction;
+import org.apache.flink.api.common.restartstrategy.RestartStrategies;
 import org.apache.flink.api.java.utils.ParameterTool;
 import org.apache.flink.streaming.api.collector.selector.OutputSelector;
 import org.apache.flink.streaming.api.datastream.DataStream;
@@ -25,28 +26,28 @@ import java.util.List;
  * This job consumes a stream of TweetImpressions and a stream of TweetSubscriptions from customers.
  * There is an output sink for each customer and each customer receives only those TweetImpressions for
  * tweets that they have subscribed to.
- *
+ * <p>
  * The tweet subscriptions are read from a socket.  The format of the messages is just:
- *   <customer_name> <tweetId>
- *
- *   For example:
- *     Google 5
- *   Indicates that customer "Google" wants to receive impressions data for the tweet with id "5"
- *
- *   To run this example pass the host name and port of the socket server where the subscription
- *   messages can be read from.  For example:
- *
- *   flink run -c com.dataartisans.TweetImpressionFilteringJob <jar_file> --host localhost --port 9999
- *
- *   A great way to test this is to use netcat to provide the socket server.  For example:
- *
- *   nc -lk 9999
- *
- *   Then type messages to the console to enable TweetSubscriptions in the format described above
- *
- *   Also note the set of possible customers is fixed.  Customer must be one of:
- *
- *   Google, Twitter, Facebook, Apple, Amazon
+ * <customer_name> <tweetId>
+ * <p>
+ * For example:
+ * Google 5
+ * Indicates that customer "Google" wants to receive impressions data for the tweet with id "5"
+ * <p>
+ * To run this example pass the host name and port of the socket server where the subscription
+ * messages can be read from.  For example:
+ * <p>
+ * flink run -c com.dataartisans.TweetImpressionFilteringJob <jar_file> --host localhost --port 9999
+ * <p>
+ * A great way to test this is to use netcat to provide the socket server.  For example:
+ * <p>
+ * nc -lk 9999
+ * <p>
+ * Then type messages to the console to enable TweetSubscriptions in the format described above
+ * <p>
+ * Also note the set of possible customers is fixed.  Customer must be one of:
+ * <p>
+ * Google, Twitter, Facebook, Apple, Amazon
  */
 public class TweetImpressionFilteringJob {
 
@@ -64,12 +65,11 @@ public class TweetImpressionFilteringJob {
     // Setup the execution environment
     final StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
     env.enableCheckpointing(1000);
-    env.getConfig().setExecutionRetryDelay(1000);
+    env.setRestartStrategy(RestartStrategies.fixedDelayRestart(Integer.MAX_VALUE, 1000));
 
     // Stream of updates to subscriptions, partitioned by tweetId, read from socket
     DataStream<TweetSubscription> filterUpdateStream = env.socketTextStream(host, port)
-      .map(stringToTweetSubscription())
-      .keyBy(TweetSubscription.getKeySelector());
+      .map(stringToTweetSubscription());
 
     // TweetImpression stream, partitioned by tweetId, with duplicates fitered out
     DataStream<TweetImpression> tweetStream = env.addSource(new TweetsWithDuplicatesSourceFunction(), "TweetImpression Source w/ duplicates")
@@ -77,8 +77,8 @@ public class TweetImpressionFilteringJob {
       .filter(new DedupeFilterFunction<>(TweetImpression.getKeySelector(), DEDUPE_CACHE_EXPIRATION_TIME_MS));
 
     // Run the tweet impressions past the filters and emit those that customers have requested
-    DataStream<CustomerImpression> filteredStream = filterUpdateStream
-      .connect(tweetStream)
+    DataStream<CustomerImpression> filteredStream = filterUpdateStream.keyBy(TweetSubscription.getKeySelector())
+      .connect(tweetStream.keyBy(TweetImpression.getKeySelector()))
       .flatMap(new TweetSubscriptionFilterFunction());
 
     // Create a seperate sink for each customer
@@ -89,7 +89,7 @@ public class TweetImpressionFilteringJob {
   }
 
   private static MapFunction<String, TweetSubscription> stringToTweetSubscription() {
-    return new MapFunction<String, TweetSubscription>(){
+    return new MapFunction<String, TweetSubscription>() {
       @Override
       public TweetSubscription map(String value) throws Exception {
         String[] splits = value.split("\\W+");
@@ -120,7 +120,7 @@ public class TweetImpressionFilteringJob {
     DataStreamSink<CustomerImpression>[] customerSinks = new DataStreamSink[customers.size()];
 
     int i = 0;
-    for(Customer customer : customers){
+    for (Customer customer : customers) {
       customerSinks[i++] = splitStream
         .select(customerStreamName(customer))
         .addSink(new CustomerSinkFunction(customer));
