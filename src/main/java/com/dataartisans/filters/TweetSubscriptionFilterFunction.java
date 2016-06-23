@@ -25,7 +25,7 @@ import java.util.HashSet;
  * like to receive TweetImpressions for the given tweet.  For each TweetImpression consumed this function
  * emits a message for *each* customer that has subscribed to that tweet.
  */
-public class TweetSubscriptionFilterFunction extends RichCoFlatMapFunction<TweetSubscription, TweetImpression, CustomerImpression> {
+public class TweetSubscriptionFilterFunction extends RichCoFlatMapFunction<TweetImpression, TweetSubscription, CustomerImpression> {
 
   private static Logger LOG = LoggerFactory.getLogger(TweetSubscriptionFilterFunction.class);
 
@@ -33,7 +33,17 @@ public class TweetSubscriptionFilterFunction extends RichCoFlatMapFunction<Tweet
     new ListStateDescriptor<>("tweetSubscriptions", Customer.class);
 
   @Override
-  public void flatMap1(TweetSubscription subscription, Collector<CustomerImpression> out) throws Exception {
+  public void flatMap1(TweetImpression impression, Collector<CustomerImpression> out) throws Exception {
+    Iterable<Customer> customers = getRuntimeContext().getListState(tweetSubscriptionsStateDesc).get();
+    if (customers != null) {
+      for (Customer customer : customers) {
+        out.collect(new CustomerImpression(customer, impression));
+      }
+    }
+  }
+
+  @Override
+  public void flatMap2(TweetSubscription subscription, Collector<CustomerImpression> out) throws Exception {
     ListState<Customer> subscriptionState = getRuntimeContext().getListState(tweetSubscriptionsStateDesc);
 
     boolean customerPresent = false;
@@ -46,16 +56,6 @@ public class TweetSubscriptionFilterFunction extends RichCoFlatMapFunction<Tweet
     if(!customerPresent){
       subscriptionState.add(subscription.getCustomer());
       LOG.info("Sub-task {}: Enabling delivery of impression for Tweet({}) to {}", getRuntimeContext().getIndexOfThisSubtask() + 1, subscription.getTweetId(), subscription.getCustomer());
-    }
-  }
-
-  @Override
-  public void flatMap2(TweetImpression impression, Collector<CustomerImpression> out) throws Exception {
-    Iterable<Customer> customers = getRuntimeContext().getListState(tweetSubscriptionsStateDesc).get();
-    if (customers != null) {
-      for (Customer customer : customers) {
-        out.collect(new CustomerImpression(customer, impression));
-      }
     }
   }
 }

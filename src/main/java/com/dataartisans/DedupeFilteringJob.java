@@ -2,7 +2,7 @@ package com.dataartisans;
 
 import com.dataartisans.domain.TweetImpression;
 import com.dataartisans.filters.DedupeFilterFunction;
-import com.dataartisans.sources.TweetsWithDuplicatesSourceFunction;
+import com.dataartisans.sources.TweetSourceFunction;
 import org.apache.flink.streaming.api.datastream.DataStream;
 import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
 
@@ -16,7 +16,7 @@ public class DedupeFilteringJob {
     final StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
     env.enableCheckpointing(1000);
 
-    DataStream<TweetImpression> tweetStream = env.addSource(new TweetsWithDuplicatesSourceFunction(), "TweetImpression Source w/ duplicates");
+    DataStream<TweetImpression> tweetStream = env.addSource(new TweetSourceFunction(true), "TweetImpression Source w/ duplicates");
 
     tweetStream
       .keyBy(TweetImpression.getKeySelector())

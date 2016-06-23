@@ -6,7 +6,7 @@ import com.dataartisans.domain.TweetImpression;
 import com.dataartisans.filters.TweetSubscriptionFilterFunction;
 import com.dataartisans.filters.DedupeFilterFunction;
 import com.dataartisans.sinks.CustomerSinkFunction;
-import com.dataartisans.sources.TweetsWithDuplicatesSourceFunction;
+import com.dataartisans.sources.TweetSourceFunction;
 import com.dataartisans.domain.TweetSubscription;
 import com.google.common.collect.Lists;
 import org.apache.flink.api.common.functions.MapFunction;
@@ -66,19 +66,20 @@ public class TweetImpressionFilteringJob {
     final StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
     env.enableCheckpointing(1000);
     env.setRestartStrategy(RestartStrategies.fixedDelayRestart(Integer.MAX_VALUE, 1000));
-
+    env.setParallelism(1);
+    
     // Stream of updates to subscriptions, partitioned by tweetId, read from socket
     DataStream<TweetSubscription> filterUpdateStream = env.socketTextStream(host, port)
-      .map(stringToTweetSubscription());
+      .map(stringToTweetSubscription())
+      .keyBy(TweetSubscription.getKeySelector());
 
-    // TweetImpression stream, partitioned by tweetId, with duplicates fitered out
-    DataStream<TweetImpression> tweetStream = env.addSource(new TweetsWithDuplicatesSourceFunction(), "TweetImpression Source w/ duplicates")
-      .keyBy(TweetImpression.getKeySelector())
-      .filter(new DedupeFilterFunction<>(TweetImpression.getKeySelector(), DEDUPE_CACHE_EXPIRATION_TIME_MS));
+    // TweetImpression stream, partitioned by tweetId
+    DataStream<TweetImpression> tweetStream = env.addSource(new TweetSourceFunction(false), "TweetImpression Source")
+      .keyBy(TweetImpression.getKeySelector());
 
     // Run the tweet impressions past the filters and emit those that customers have requested
-    DataStream<CustomerImpression> filteredStream = filterUpdateStream.keyBy(TweetSubscription.getKeySelector())
-      .connect(tweetStream.keyBy(TweetImpression.getKeySelector()))
+    DataStream<CustomerImpression> filteredStream = tweetStream
+      .connect(filterUpdateStream)
       .flatMap(new TweetSubscriptionFilterFunction());
 
     // Create a seperate sink for each customer

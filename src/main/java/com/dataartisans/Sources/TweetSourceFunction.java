@@ -6,12 +6,17 @@ import org.apache.flink.streaming.api.functions.source.RichParallelSourceFunctio
 
 import java.util.Random;
 
-public class TweetsWithDuplicatesSourceFunction extends RichParallelSourceFunction<TweetImpression> {
+public class TweetSourceFunction extends RichParallelSourceFunction<TweetImpression> {
 
   private static final int NUM_DUPLICATES = 10;
   private static final int NUM_TWEETS = 10;
   private volatile boolean running = true;
   private Random random = new Random();
+  private final boolean injectDuplicates;
+
+  public TweetSourceFunction(boolean injectDuplicates){
+    this.injectDuplicates = injectDuplicates;
+  }
 
   @Override
   public void open(Configuration parameters) throws Exception {
@@ -28,7 +33,7 @@ public class TweetsWithDuplicatesSourceFunction extends RichParallelSourceFuncti
     // Just generate random tweets every second in the [range 1 - NUM_TWEETS]
     while (running) {
       Thread.sleep(1000);
-      for(int i=0; i<NUM_DUPLICATES; i++) {
+      for(int i=0; i < (injectDuplicates ? NUM_DUPLICATES : 1); i++) {
         ctx.collect(new TweetImpression((Math.abs(random.nextLong()) % NUM_TWEETS) + 1));
       }
     }
